@@ -1,0 +1,19 @@
+# Python clutter
+__pycache__/
+*.py[cod]
+
+# Virtual Environment (Never push this!)
+venv/
+env/
+.env
+
+# Database (Don't push the live data)
+*.db
+*.sqlite3
+
+# Mac OS specific clutter
+.DS_Store
+
+# IDE specific settings
+.vscode/
+.idea/
