@@ -66,10 +66,105 @@ class Dashboard:
 
     def show_policies(self):
         self.clear_content()
-        ttk.Label(self.content_area, text="Policy Management", font=("Arial", 18, "bold")).pack(anchor=tk.W, pady=(0, 20))
-        # We will add the policy table/form here later
-        ttk.Button(self.content_area, text="+ Create New Policy").pack(anchor=tk.W)
+        
+        # 1. Header
+        header_frame = ttk.Frame(self.content_area)
+        header_frame.pack(fill=tk.X, pady=(0, 20))
+        ttk.Label(header_frame, text="Policy Management", font=("Arial", 18, "bold")).pack(side=tk.LEFT)
+        ttk.Button(header_frame, text="+ Create New Policy", command=self.open_add_policy_window).pack(side=tk.RIGHT)
 
+        # 2. Policy List (Treeview)
+        # Note: We display names, not IDs, for better UX
+        columns = ("ID", "Policy #", "Customer", "Type", "Start", "End", "Premium", "Status")
+        self.policy_tree = ttk.Treeview(self.content_area, columns=columns, show="headings")
+        
+        for col in columns:
+            self.policy_tree.heading(col, text=col)
+            width = 100 if col in ["Start", "End", "Status"] else 150
+            self.policy_tree.column(col, width=width)
+            
+        self.policy_tree.column("ID", width=50)
+        self.policy_tree.pack(fill=tk.BOTH, expand=True)
+        
+        self.refresh_policy_list()
+
+    def refresh_policy_list(self):
+        for item in self.policy_tree.get_children():
+            self.policy_tree.delete(item)
+        
+        policies = backend.get_all_policies()
+        for pol in policies:
+            self.policy_tree.insert("", tk.END, values=pol)
+
+    def open_add_policy_window(self):
+        policy_win = tk.Toplevel(self.root)
+        policy_win.title("Create New Policy")
+        policy_win.geometry("500x500")
+
+        # --- Data Loading for Dropdowns ---
+        # Get Customers: returns list of (id, first, last...)
+        customers_raw = backend.get_all_customers() 
+        # Create a dict to map "Name (ID)" string back to ID
+        customer_map = {f"{c[1]} {c[2]} (ID: {c[0]})": c[0] for c in customers_raw}
+        customer_options = list(customer_map.keys())
+
+        # Get Policy Types
+        types_raw = backend.get_policy_types()
+        type_map = {f"{t[1]}": t[0] for t in types_raw}
+        type_options = list(type_map.keys())
+
+        # --- Form Fields ---
+        
+        # 1. Select Customer
+        ttk.Label(policy_win, text="Select Customer:").pack(anchor=tk.W, padx=20, pady=(20, 5))
+        cust_combo = ttk.Combobox(policy_win, values=customer_options, state="readonly")
+        cust_combo.pack(fill=tk.X, padx=20)
+
+        # 2. Select Policy Type
+        ttk.Label(policy_win, text="Policy Type:").pack(anchor=tk.W, padx=20, pady=(10, 5))
+        type_combo = ttk.Combobox(policy_win, values=type_options, state="readonly")
+        type_combo.pack(fill=tk.X, padx=20)
+
+        # 3. Dates (Text Entry YYYY-MM-DD)
+        ttk.Label(policy_win, text="Start Date (YYYY-MM-DD):").pack(anchor=tk.W, padx=20, pady=(10, 5))
+        start_entry = ttk.Entry(policy_win)
+        start_entry.insert(0, "2025-01-01") # Default value
+        start_entry.pack(fill=tk.X, padx=20)
+
+        ttk.Label(policy_win, text="End Date (YYYY-MM-DD):").pack(anchor=tk.W, padx=20, pady=(10, 5))
+        end_entry = ttk.Entry(policy_win)
+        end_entry.insert(0, "2026-01-01")
+        end_entry.pack(fill=tk.X, padx=20)
+
+        # 4. Premium
+        ttk.Label(policy_win, text="Premium Amount ($):").pack(anchor=tk.W, padx=20, pady=(10, 5))
+        premium_entry = ttk.Entry(policy_win)
+        premium_entry.pack(fill=tk.X, padx=20)
+
+        def save_policy():
+            # Validation
+            if not cust_combo.get() or not type_combo.get() or not premium_entry.get():
+                tk.messagebox.showerror("Error", "All fields are required!")
+                return
+            
+            # Map names back to IDs
+            selected_cust_id = customer_map[cust_combo.get()]
+            selected_type_id = type_map[type_combo.get()]
+            
+            success, msg = backend.add_policy(
+                selected_cust_id, selected_type_id,
+                start_entry.get(), end_entry.get(), premium_entry.get()
+            )
+            
+            if success:
+                tk.messagebox.showinfo("Success", msg)
+                policy_win.destroy()
+                self.refresh_policy_list()
+            else:
+                tk.messagebox.showerror("Error", msg)
+
+        ttk.Button(policy_win, text="Create Policy", command=save_policy).pack(pady=30)
+        
     def show_claims(self):
         self.clear_content()
         ttk.Label(self.content_area, text="Claims Processing", font=("Arial", 18, "bold")).pack(anchor=tk.W, pady=(0, 20))
