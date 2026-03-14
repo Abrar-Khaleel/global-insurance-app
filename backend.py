@@ -99,3 +99,74 @@ def get_all_policies():
     results = cursor.fetchall()
     conn.close()
     return results
+
+# --- CLAIMS MANAGEMENT ---
+
+def get_active_policies():
+    """Fetches active policies to populate the 'File Claim' dropdown."""
+    conn = create_connection()
+    cursor = conn.cursor()
+    # We fetch ID and Policy Number for the dropdown
+    cursor.execute("""
+        SELECT p.policy_id, p.policy_number, c.first_name, c.last_name 
+        FROM policies p
+        JOIN customers c ON p.customer_id = c.customer_id
+        WHERE p.status = 'Active'
+    """)
+    results = cursor.fetchall()
+    conn.close()
+    return results
+
+def file_claim(policy_id, date_filed, claim_amount, incident_date, location, description):
+    """
+    ATOMIC TRANSACTION: Creates a Claim AND the associated Incident report.
+    If one fails, both are rolled back.
+    """
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # 1. Insert the Claim
+        cursor.execute("""
+            INSERT INTO claims (policy_id, date_filed, claim_amount, status)
+            VALUES (?, ?, ?, 'Pending')
+        """, (policy_id, date_filed, claim_amount))
+        
+        # Capture the ID of the claim we just created
+        new_claim_id = cursor.lastrowid
+        
+        # 2. Insert the Incident (linked to the new claim_id)
+        cursor.execute("""
+            INSERT INTO incidents (claim_id, incident_date, location, description)
+            VALUES (?, ?, ?, ?)
+        """, (new_claim_id, incident_date, location, description))
+        
+        conn.commit()
+        return True, "Claim and Incident Report filed successfully."
+        
+    except Exception as e:
+        conn.rollback() # Undo changes if error occurs
+        return False, f"Transaction Failed: {e}"
+    finally:
+        conn.close()
+
+def get_all_claims():
+    """Fetches claims joined with Policy and Customer info for the dashboard."""
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 
+            cl.claim_id,
+            p.policy_number,
+            c.first_name || ' ' || c.last_name,
+            cl.date_filed,
+            cl.claim_amount,
+            cl.status
+        FROM claims cl
+        JOIN policies p ON cl.policy_id = p.policy_id
+        JOIN customers c ON p.customer_id = c.customer_id
+        ORDER BY cl.date_filed DESC
+    """)
+    results = cursor.fetchall()
+    conn.close()
+    return results

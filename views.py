@@ -167,10 +167,110 @@ class Dashboard:
         
     def show_claims(self):
         self.clear_content()
-        ttk.Label(self.content_area, text="Claims Processing", font=("Arial", 18, "bold")).pack(anchor=tk.W, pady=(0, 20))
-        # We will add claims logic here later
+        
+        # 1. Header
+        header = ttk.Frame(self.content_area)
+        header.pack(fill=tk.X, pady=(0, 20))
+        ttk.Label(header, text="Claims Processing", font=("Arial", 18, "bold")).pack(side=tk.LEFT)
+        ttk.Button(header, text="+ File New Claim", command=self.open_file_claim_window).pack(side=tk.RIGHT)
 
-    # ... inside Dashboard class ...
+        # 2. Claims List (Treeview)
+        columns = ("ID", "Policy #", "Customer", "Date Filed", "Amount ($)", "Status")
+        self.claims_tree = ttk.Treeview(self.content_area, columns=columns, show="headings")
+        
+        for col in columns:
+            self.claims_tree.heading(col, text=col)
+            self.claims_tree.column(col, width=120)
+        
+        # Color Code the Status rows (Optional Visual Flair)
+        self.claims_tree.tag_configure('Pending', foreground='orange')
+        self.claims_tree.tag_configure('Approved', foreground='green')
+        self.claims_tree.tag_configure('Rejected', foreground='red')
+
+        self.claims_tree.pack(fill=tk.BOTH, expand=True)
+        self.refresh_claims_list()
+
+    def refresh_claims_list(self):
+        for item in self.claims_tree.get_children():
+            self.claims_tree.delete(item)
+            
+        claims = backend.get_all_claims()
+        for cl in claims:
+            # cl[5] is the status column index
+            self.claims_tree.insert("", tk.END, values=cl, tags=(cl[5],))
+
+    def open_file_claim_window(self):
+        claim_win = tk.Toplevel(self.root)
+        claim_win.title("File New Claim")
+        claim_win.geometry("600x600")
+
+        # --- Load Policies for Dropdown ---
+        policies = backend.get_active_policies()
+        # Create map: "Policy # - Customer Name" -> ID
+        policy_map = {f"{p[1]} - {p[2]} {p[3]}": p[0] for p in policies}
+        
+        if not policy_map:
+            tk.messagebox.showerror("Error", "No Active Policies found. Create a policy first.")
+            claim_win.destroy()
+            return
+
+        # --- Form Layout ---
+        
+        # Section 1: Policy Info
+        ttk.Label(claim_win, text="Select Policy:", font=("Arial", 10, "bold")).pack(anchor=tk.W, padx=20, pady=(20, 5))
+        policy_combo = ttk.Combobox(claim_win, values=list(policy_map.keys()), state="readonly", width=50)
+        policy_combo.pack(padx=20)
+
+        # Section 2: Financials
+        ttk.Label(claim_win, text="Claim Amount ($):", font=("Arial", 10, "bold")).pack(anchor=tk.W, padx=20, pady=(15, 5))
+        amount_entry = ttk.Entry(claim_win)
+        amount_entry.pack(fill=tk.X, padx=20)
+
+        ttk.Label(claim_win, text="Date Filed (YYYY-MM-DD):", font=("Arial", 10, "bold")).pack(anchor=tk.W, padx=20, pady=(10, 5))
+        date_entry = ttk.Entry(claim_win)
+        date_entry.insert(0, "2026-01-25")
+        date_entry.pack(fill=tk.X, padx=20)
+
+        # Section 3: Incident Details (The "Story")
+        ttk.Separator(claim_win, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=20)
+        ttk.Label(claim_win, text="Incident Report Details", font=("Arial", 12, "bold")).pack(pady=(0, 10))
+
+        ttk.Label(claim_win, text="Incident Date (YYYY-MM-DD):").pack(anchor=tk.W, padx=20)
+        inc_date_entry = ttk.Entry(claim_win)
+        inc_date_entry.insert(0, "2026-01-24")
+        inc_date_entry.pack(fill=tk.X, padx=20, pady=5)
+
+        ttk.Label(claim_win, text="Incident Location:").pack(anchor=tk.W, padx=20)
+        location_entry = ttk.Entry(claim_win)
+        location_entry.pack(fill=tk.X, padx=20, pady=5)
+
+        ttk.Label(claim_win, text="Description of Incident:").pack(anchor=tk.W, padx=20)
+        # Using Text widget for multi-line description
+        desc_entry = tk.Text(claim_win, height=5, width=50)
+        desc_entry.pack(padx=20, pady=5)
+
+        def submit_claim():
+            if not policy_combo.get() or not amount_entry.get():
+                tk.messagebox.showerror("Error", "Policy and Amount are required.")
+                return
+
+            pol_id = policy_map[policy_combo.get()]
+            description = desc_entry.get("1.0", tk.END).strip() # Get text from Text widget
+            
+            success, msg = backend.file_claim(
+                pol_id, date_entry.get(), amount_entry.get(),
+                inc_date_entry.get(), location_entry.get(), description
+            )
+
+            if success:
+                tk.messagebox.showinfo("Success", msg)
+                claim_win.destroy()
+                self.refresh_claims_list()
+            else:
+                tk.messagebox.showerror("Error", msg)
+
+        ttk.Button(claim_win, text="Submit Claim Request", command=submit_claim).pack(pady=20)
+
 
     def show_customers(self):
         self.clear_content()
