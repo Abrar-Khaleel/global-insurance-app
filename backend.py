@@ -170,3 +170,44 @@ def get_all_claims():
     results = cursor.fetchall()
     conn.close()
     return results
+
+def process_claim(claim_id, status, approved_amount=0.0):
+    """
+    Updates the status of a pending claim.
+    If approved, automatically generates a payout record in the payments table.
+    """
+    from datetime import date
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # 1. Look up the policy_id associated with this claim
+        cursor.execute("SELECT policy_id FROM claims WHERE claim_id = ?", (claim_id,))
+        result = cursor.fetchone()
+        if not result:
+            return False, "Claim not found."
+        policy_id = result[0]
+
+        # 2. Update the Claim record
+        cursor.execute("""
+            UPDATE claims
+            SET status = ?, approved_amount = ?
+            WHERE claim_id = ?
+        """, (status, approved_amount, claim_id))
+
+        # 3. If Approved, log the financial transaction
+        if status == 'Approved' and float(approved_amount) > 0:
+            today = date.today().strftime("%Y-%m-%d")
+            cursor.execute("""
+                INSERT INTO payments (policy_id, amount, payment_date, payment_type)
+                VALUES (?, ?, ?, 'Claim Payout')
+            """, (policy_id, float(approved_amount), today))
+
+        conn.commit()
+        return True, f"Claim #{claim_id} has been {status}."
+        
+    except Exception as e:
+        conn.rollback() # Cancel everything if an error occurs
+        return False, f"Database Error: {e}"
+    finally:
+        conn.close()

@@ -173,6 +173,7 @@ class Dashboard:
         header.pack(fill=tk.X, pady=(0, 20))
         ttk.Label(header, text="Claims Processing", font=("Arial", 18, "bold")).pack(side=tk.LEFT)
         ttk.Button(header, text="+ File New Claim", command=self.open_file_claim_window).pack(side=tk.RIGHT)
+        ttk.Button(header, text="Process Selected", command=self.open_process_claim_window).pack(side=tk.RIGHT, padx=10)
 
         # 2. Claims List (Treeview)
         columns = ("ID", "Policy #", "Customer", "Date Filed", "Amount ($)", "Status")
@@ -198,6 +199,57 @@ class Dashboard:
         for cl in claims:
             # cl[5] is the status column index
             self.claims_tree.insert("", tk.END, values=cl, tags=(cl[5],))
+
+    def open_process_claim_window(self):
+        """Opens a window to approve or reject a selected claim."""
+        # 1. Check if a row is selected
+        selected = self.claims_tree.selection()
+        if not selected:
+            tk.messagebox.showwarning("Selection Required", "Please click on a claim in the list first.")
+            return
+
+        # 2. Get data from the selected row
+        item = self.claims_tree.item(selected[0])
+        values = item['values']
+        claim_id = values[0]
+        req_amount = values[4]
+        current_status = values[5]
+
+        # 3. Prevent processing already completed claims
+        if current_status != 'Pending':
+            tk.messagebox.showinfo("Notice", f"This claim has already been {current_status}.")
+            return
+
+        # 4. Build the popup window
+        process_win = tk.Toplevel(self.root)
+        process_win.title(f"Process Claim #{claim_id}")
+        process_win.geometry("350x200")
+
+        ttk.Label(process_win, text=f"Requested Amount: ${req_amount}", font=("Arial", 12, "bold")).pack(pady=15)
+
+        ttk.Label(process_win, text="Approved Amount ($):").pack(anchor=tk.W, padx=20)
+        appr_amount_entry = ttk.Entry(process_win)
+        appr_amount_entry.insert(0, req_amount) # Default to fully approving the requested amount
+        appr_amount_entry.pack(fill=tk.X, padx=20, pady=5)
+
+        def finalize(status):
+            # If rejected, override the entry to 0.0
+            final_amt = 0.0 if status == 'Rejected' else appr_amount_entry.get()
+            
+            success, msg = backend.process_claim(claim_id, status, final_amt)
+            if success:
+                tk.messagebox.showinfo("Success", msg)
+                process_win.destroy()
+                self.refresh_claims_list() # Updates the table colors immediately
+            else:
+                tk.messagebox.showerror("Error", msg)
+
+        # Buttons Frame
+        btn_frame = ttk.Frame(process_win)
+        btn_frame.pack(pady=20)
+
+        ttk.Button(btn_frame, text="Approve", command=lambda: finalize('Approved')).pack(side=tk.LEFT, padx=10)
+        ttk.Button(btn_frame, text="Reject", command=lambda: finalize('Rejected')).pack(side=tk.LEFT, padx=10)
 
     def open_file_claim_window(self):
         claim_win = tk.Toplevel(self.root)
