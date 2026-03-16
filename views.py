@@ -34,6 +34,7 @@ class Dashboard:
             ("Manage Policies", self.show_policies),
             ("Manage Claims", self.show_claims),
             ("Customers", self.show_customers),
+            ("Financial Reports", self.show_reports),
             ("Logout", self.logout)
         ]
 
@@ -87,6 +88,35 @@ class Dashboard:
         self.policy_tree.pack(fill=tk.BOTH, expand=True)
         
         self.refresh_policy_list()
+        
+    def show_reports(self):
+        self.clear_content()
+        
+        # Header
+        header = ttk.Frame(self.content_area)
+        header.pack(fill=tk.X, pady=(0, 20))
+        ttk.Label(header, text="Financial & Ledger Reports", font=("Arial", 18, "bold")).pack(side=tk.LEFT)
+
+        # Ledger List (Treeview)
+        columns = ("Transaction ID", "Policy #", "Customer", "Type", "Amount ($)", "Date")
+        self.reports_tree = ttk.Treeview(self.content_area, columns=columns, show="headings")
+        
+        for col in columns:
+            self.reports_tree.heading(col, text=col)
+            self.reports_tree.column(col, width=120)
+            
+        self.reports_tree.pack(fill=tk.BOTH, expand=True)
+        
+        # Load Data
+        records = backend.get_financial_reports()
+        for rec in records:
+            self.reports_tree.insert("", tk.END, values=rec)
+            
+        # Add a quick summary at the bottom
+        total_payouts = sum(float(rec[4]) for rec in records if rec[3] == 'Claim Payout')
+        summary_frame = ttk.Frame(self.content_area)
+        summary_frame.pack(fill=tk.X, pady=20)
+        ttk.Label(summary_frame, text=f"Total Claim Payouts To Date: ${total_payouts:.2f}", font=("Arial", 14, "bold"), foreground="red").pack(side=tk.RIGHT)
 
     def refresh_policy_list(self):
         for item in self.policy_tree.get_children():

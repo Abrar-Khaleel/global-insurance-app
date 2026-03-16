@@ -211,3 +211,26 @@ def process_claim(claim_id, status, approved_amount=0.0):
         return False, f"Database Error: {e}"
     finally:
         conn.close()
+
+# --- REPORTS & FINANCIALS ---
+
+def get_financial_reports():
+    """Fetches all payment records (Premiums and Claim Payouts) for the dashboard."""
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 
+            pay.payment_id,
+            p.policy_number,
+            c.first_name || ' ' || c.last_name as customer_name,
+            pay.payment_type,
+            pay.amount,
+            pay.payment_date
+        FROM payments pay
+        JOIN policies p ON pay.policy_id = p.policy_id
+        JOIN customers c ON p.customer_id = c.customer_id
+        ORDER BY pay.payment_date DESC
+    """)
+    results = cursor.fetchall()
+    conn.close()
+    return results
