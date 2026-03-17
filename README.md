@@ -1,4 +1,3 @@
-```markdown
 # Global Insurance Management System
 
 A robust desktop application designed to streamline insurance operations. This system replaces manual spreadsheet processes with a centralized, encrypted database solution for managing policies, claims, and customer data. 
