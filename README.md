@@ -1,35 +1,39 @@
+```markdown
 # Global Insurance Management System
 
-A robust desktop application designed to streamline insurance operations. This system replaces manual spreadsheet processes with a centralized, encrypted database solution for managing policies, claims, and customer data.
+A robust desktop application designed to streamline insurance operations. This system replaces manual spreadsheet processes with a centralized, encrypted database solution for managing policies, claims, and customer data. 
 
-## 🚧 Project Status
-**Current State:** In Active Development 
-**Latest Feature:** Database Architecture & User Authentication Module
-
-## 🎯 Key Features
-* **Centralized Database:** SQLite implementation with 3rd Normal Form (3NF) schema.
-* **Security First:**
-    * Role-Based Access Control (RBAC) for Admins, Managers, and Staff.
-    * AES-256 Database Encryption using SQLCipher.
-    * Password hashing with `bcrypt`.
-* **Claims Processing:** (In Progress) Full lifecycle management from incident report to payout.
+## 🎯 Key Architecture & Features
+* **Relational Database Design:** Built on SQLite utilizing 3rd Normal Form (3NF) to ensure data integrity across Customers, Policies, and Claims.
+* **Atomic Transactions:** Claims processing is handled via database transactions, ensuring an Incident Report and Financial Claim are either saved together or safely rolled back.
+* **Enterprise-Grade Security:**
+    * Role-Based Access Control (RBAC) separating Admins, Managers, and Staff.
+    * Database encryption leveraging SQLCipher.
+    * Password hashing implemented with `bcrypt`.
+* **Financial Ledger:** Automated payment generation upon claim approval with real-time reporting dashboards.
+* **Separation of Concerns:** Clean MVC-inspired architecture separating database logic (`backend.py`) from GUI rendering (`views.py`).
+* **Automated Testing:** Core security modules verified via unit testing.
 
 ## 🛠 Tech Stack
 * **Language:** Python 3.11+
 * **Database:** SQLite 3 (with SQLCipher integration)
 * **GUI:** Tkinter (Themed)
-* **Security:** `bcrypt`, `pysqlcipher3`
+* **Testing & Security:** `unittest`, `bcrypt`, `pysqlcipher3`
 
 ## 🚀 Getting Started
-1.  Clone the repository:
-    ```bash
-    git clone [https://github.com/Abrar-Khaleel/global-insurance-app.git](https://github.com/Abrar-Khaleel/global-insurance-app.git)
-    ```
-2.  Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-3.  Initialize the database:
-    ```bash
-    python db_setup.py
-    ```
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Abrar-Khaleel/global-insurance-app.git
+   ```
+2. Activate your virtual environment and install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Initialize the database and create an admin user:
+   ```bash
+   python auth.py
+   ```
+4. Launch the application:
+   ```bash
+   python main.py
+   ```

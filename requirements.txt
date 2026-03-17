@@ -1,2 +1,2 @@
-bcrypt
-pysqlcipher3
+bcrypt==4.1.2
+pysqlcipher3==1.2.1
