@@ -15,7 +15,7 @@ class Dashboard:
         style.configure("Sidebar.TButton", font=("Arial", 12), padding=10)
         
         # --- MAIN LAYOUT ---
-        # We use a PanedWindow to separate the Sidebar (Left) from Content (Right)
+        # PanedWindow to separate the Sidebar (Left) from Content (Right)
         self.paned_window = tk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         self.paned_window.pack(fill=tk.BOTH, expand=True)
 
@@ -28,7 +28,7 @@ class Dashboard:
         self.paned_window.add(self.content_area)
 
         # --- NAVIGATION BUTTONS ---
-        # We store buttons in a list to manage them easily
+        # storing buttons in a list to manage them easily
         self.nav_buttons = [
             ("Home", self.show_home),
             ("Manage Policies", self.show_policies),
@@ -57,7 +57,6 @@ class Dashboard:
         ttk.Label(self.content_area, text=f"Welcome, {self.role}!", font=("Arial", 24)).pack(pady=20)
         ttk.Label(self.content_area, text="Select an option from the sidebar to begin.").pack()
         
-        # Example: Quick Stats (Professional touch)
         stats_frame = ttk.Frame(self.content_area)
         stats_frame.pack(pady=30, fill=tk.X)
         
@@ -112,7 +111,7 @@ class Dashboard:
         for rec in records:
             self.reports_tree.insert("", tk.END, values=rec)
             
-        # Add a quick summary at the bottom
+        # Quick summary 
         total_payouts = sum(float(rec[4]) for rec in records if rec[3] == 'Claim Payout')
         summary_frame = ttk.Frame(self.content_area)
         summary_frame.pack(fill=tk.X, pady=20)
@@ -477,7 +476,7 @@ class Dashboard:
         curr_lname = values[2]
         curr_email = values[3]
         curr_phone = values[4]
-        # We didn't display the address in the Treeview to save space, but we can still edit it
+        # the address isn't displayed in the Treeview to save space, but can be edited.
 
         # 3. Build the UI Window
         edit_window = tk.Toplevel(self.root)

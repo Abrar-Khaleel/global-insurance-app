@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
-import auth  # Import the auth module we created earlier
+import auth  
 from views import Dashboard
 
 class LoginWindow:
@@ -66,16 +66,10 @@ class LoginWindow:
                 self.status_label.config(text="Please enter both fields.")
                 return
 
-            # Call our auth module
             role = auth.login_user(username, password)
             
             if role:
-                # messagebox.showinfo("Success", f"Welcome back, {role}!") 
-                # Tip: Comment out the messagebox above for a smoother/faster login experience
-                
-                # REMOVE self.root.destroy() FROM HERE.
-                # It is now handled inside open_dashboard.
-                
+                messagebox.showinfo("Success", f"Welcome back, {role}!") 
                 self.open_dashboard(role) # Open the main app
             else:
                 self.status_label.config(text="Invalid credentials.")
@@ -93,7 +87,7 @@ if __name__ == "__main__":
     
     # Apply a theme (built-in to Mac/Windows) for better looks
     style = ttk.Style()
-    style.theme_use('clam') # 'clam' is often cleaner, on Mac try 'aqua'
+    style.theme_use('aqua') # 'clam' is often cleaner, on Mac try 'aqua' or 'alt'
     
     app = LoginWindow(root)
     root.mainloop()

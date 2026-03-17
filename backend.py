@@ -125,7 +125,7 @@ def get_active_policies():
     """Fetches active policies to populate the 'File Claim' dropdown."""
     conn = create_connection()
     cursor = conn.cursor()
-    # We fetch ID and Policy Number for the dropdown
+    # fetch ID and Policy Number for the dropdown
     cursor.execute("""
         SELECT p.policy_id, p.policy_number, c.first_name, c.last_name 
         FROM policies p
