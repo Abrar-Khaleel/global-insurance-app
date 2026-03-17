@@ -88,7 +88,7 @@ class Dashboard:
         self.policy_tree.pack(fill=tk.BOTH, expand=True)
         
         self.refresh_policy_list()
-        
+
     def show_reports(self):
         self.clear_content()
         
@@ -366,6 +366,9 @@ class Dashboard:
         # Add Customer Button
         ttk.Button(header_frame, text="+ Add New Customer", command=self.open_add_customer_window).pack(side=tk.RIGHT)
 
+        # Edit Customer Button
+        ttk.Button(header_frame, text="Edit Selected", command=self.open_edit_customer_window).pack(side=tk.RIGHT, padx=10)
+
         # 2. Search Bar
         search_frame = ttk.Frame(self.content_area)
         search_frame.pack(fill=tk.X, pady=(0, 10))
@@ -456,6 +459,70 @@ class Dashboard:
                 tk.messagebox.showerror("Error", message)
 
         ttk.Button(add_window, text="Save Customer", command=save_action).pack(pady=20)
+    
+    def open_edit_customer_window(self):
+        """Opens a window pre-filled with the selected customer's data to edit."""
+        # 1. Get the selected row
+        selected = self.tree.selection()
+        if not selected:
+            tk.messagebox.showwarning("Selection Required", "Please click on a customer in the list first.")
+            return
+
+        # 2. Extract current values
+        item = self.tree.item(selected[0])
+        values = item['values']
+        
+        customer_id = values[0]
+        curr_fname = values[1]
+        curr_lname = values[2]
+        curr_email = values[3]
+        curr_phone = values[4]
+        # We didn't display the address in the Treeview to save space, but we can still edit it
+
+        # 3. Build the UI Window
+        edit_window = tk.Toplevel(self.root)
+        edit_window.title(f"Edit Customer #{customer_id}")
+        edit_window.geometry("400x400")
+        
+        # Form Fields (Pre-filled)
+        ttk.Label(edit_window, text="First Name:").pack(anchor=tk.W, padx=20, pady=(20, 5))
+        fname_entry = ttk.Entry(edit_window)
+        fname_entry.insert(0, curr_fname)
+        fname_entry.pack(fill=tk.X, padx=20)
+
+        ttk.Label(edit_window, text="Last Name:").pack(anchor=tk.W, padx=20, pady=(10, 5))
+        lname_entry = ttk.Entry(edit_window)
+        lname_entry.insert(0, curr_lname)
+        lname_entry.pack(fill=tk.X, padx=20)
+
+        ttk.Label(edit_window, text="Email:").pack(anchor=tk.W, padx=20, pady=(10, 5))
+        email_entry = ttk.Entry(edit_window)
+        email_entry.insert(0, curr_email)
+        email_entry.pack(fill=tk.X, padx=20)
+
+        ttk.Label(edit_window, text="Phone:").pack(anchor=tk.W, padx=20, pady=(10, 5))
+        phone_entry = ttk.Entry(edit_window)
+        phone_entry.insert(0, curr_phone if curr_phone != 'None' else '')
+        phone_entry.pack(fill=tk.X, padx=20)
+        
+        ttk.Label(edit_window, text="Address:").pack(anchor=tk.W, padx=20, pady=(10, 5))
+        address_entry = ttk.Entry(edit_window)
+        # Leaving address blank to fill out, or you could fetch it from DB if needed
+        address_entry.pack(fill=tk.X, padx=20)
+
+        def save_changes():
+            success, message = backend.update_customer(
+                customer_id, fname_entry.get(), lname_entry.get(), 
+                email_entry.get(), phone_entry.get(), address_entry.get()
+            )
+            if success:
+                tk.messagebox.showinfo("Success", message)
+                edit_window.destroy()
+                self.refresh_customer_list() # Instantly updates the table
+            else:
+                tk.messagebox.showerror("Error", message)
+
+        ttk.Button(edit_window, text="Save Changes", command=save_changes).pack(pady=20)
 
     def logout(self):
         self.root.destroy()

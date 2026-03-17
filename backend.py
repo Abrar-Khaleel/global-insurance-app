@@ -21,6 +21,25 @@ def add_customer(first_name, last_name, email, phone, address):
     finally:
         conn.close()
 
+def update_customer(customer_id, first_name, last_name, email, phone, address):
+    """Updates an existing customer's information in the database."""
+    conn = create_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE customers 
+            SET first_name = ?, last_name = ?, email = ?, phone = ?, address = ?
+            WHERE customer_id = ?
+        """, (first_name, last_name, email, phone, address, customer_id))
+        conn.commit()
+        return True, "Customer updated successfully."
+    except sqlite3.IntegrityError:
+        return False, "Error: Email already in use by another customer."
+    except Exception as e:
+        return False, f"Database Error: {e}"
+    finally:
+        conn.close()
+
 def get_all_customers():
     """Retrieves all customers for the list view."""
     conn = create_connection()
