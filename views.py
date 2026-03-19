@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import backend
 
 class Dashboard:
@@ -35,6 +37,7 @@ class Dashboard:
             ("Manage Claims", self.show_claims),
             ("Customers", self.show_customers),
             ("Financial Reports", self.show_reports),
+            ("Analytics", self.show_analytics),
             ("Logout", self.logout)
         ]
 
@@ -116,6 +119,63 @@ class Dashboard:
         summary_frame = ttk.Frame(self.content_area)
         summary_frame.pack(fill=tk.X, pady=20)
         ttk.Label(summary_frame, text=f"Total Claim Payouts To Date: ${total_payouts:.2f}", font=("Arial", 14, "bold"), foreground="red").pack(side=tk.RIGHT)
+    
+    def show_analytics(self):
+        self.clear_content()
+        
+        # 1. Header
+        header = ttk.Frame(self.content_area)
+        header.pack(fill=tk.X, pady=(0, 20))
+        ttk.Label(header, text="Analytics & Intelligence", font=("Arial", 18, "bold")).pack(side=tk.LEFT)
+
+        # 2. Fetch KPI Data
+        premium, payouts, rate = backend.get_analytics_kpis()
+        
+        # 3. Build KPI Cards
+        kpi_frame = ttk.Frame(self.content_area)
+        kpi_frame.pack(fill=tk.X, pady=10)
+
+        # Premium Card
+        ttk.Label(kpi_frame, text=f"Active Premiums\n${premium:,.2f}", font=("Arial", 14, "bold"), 
+                  background="#e6f2ff", padding=15, anchor="center").pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
+        # Payouts Card
+        ttk.Label(kpi_frame, text=f"Total Payouts\n${payouts:,.2f}", font=("Arial", 14, "bold"), 
+                  background="#ffe6e6", padding=15, anchor="center").pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
+        # Approval Rate Card
+        ttk.Label(kpi_frame, text=f"Approval Rate\n{rate:.1f}%", font=("Arial", 14, "bold"), 
+                  background="#e6ffe6", padding=15, anchor="center").pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
+
+        # 4. Build the Matplotlib Chart
+        chart_data = backend.get_claims_by_month()
+        
+        if chart_data:
+            months = [row[0] for row in chart_data]
+            counts = [row[1] for row in chart_data]
+
+            # Create a Figure (the blank canvas)
+            fig = Figure(figsize=(8, 4), dpi=100, facecolor='#2b2b2b')
+            ax = fig.add_subplot(111) # 1x1 grid, first subplot
+            ax.set_facecolor('#2b2b2b')
+            
+            # Plot the data
+            ax.bar(months, counts, color='#4da6ff')
+
+            ax.set_title("Claims Filed (Trailing 12 Months)", fontsize=14, color = 'white')
+            ax.set_ylabel("Volume of Claims", fontsize=10, color = 'white')
+
+            ax.tick_params(axis='x', rotation=45, color = 'white', labelcolor='white') # Tilt the month labels so they fit
+            ax.tick_params(axis='y', colors='white', labelcolor='white')
+            for spine in ax.spines.values():
+                spine.set_edgecolor('white')
+            
+            fig.tight_layout() # Prevent labels from getting cut off
+
+            # Embed the Figure into Tkinter
+            canvas = FigureCanvasTkAgg(fig, master=self.content_area)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, pady=(20, 0))
+        else:
+            ttk.Label(self.content_area, text="Not enough data to generate chart.", font=("Arial", 12)).pack(pady=40)
 
     def refresh_policy_list(self):
         for item in self.policy_tree.get_children():

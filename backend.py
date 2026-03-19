@@ -253,3 +253,48 @@ def get_financial_reports():
     results = cursor.fetchall()
     conn.close()
     return results
+
+
+# --- ANALYTICS & DASHBOARD ---
+
+def get_analytics_kpis():
+    """Calculates top-level business metrics for the dashboard."""
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    # 1. Total Active Premium Revenue
+    cursor.execute("SELECT SUM(premium_amount) FROM policies WHERE status = 'Active'")
+    total_premium = cursor.fetchone()[0] or 0.0
+
+    # 2. Total Claim Payouts
+    cursor.execute("SELECT SUM(amount) FROM payments WHERE payment_type = 'Claim Payout'")
+    total_payouts = cursor.fetchone()[0] or 0.0
+
+    # 3. Claim Approval Rate
+    cursor.execute("SELECT COUNT(*) FROM claims WHERE status = 'Approved'")
+    approved_claims = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM claims")
+    total_claims = cursor.fetchone()[0]
+    
+    approval_rate = (approved_claims / total_claims * 100) if total_claims > 0 else 0.0
+
+    conn.close()
+    return total_premium, total_payouts, approval_rate
+
+def get_claims_by_month():
+    """Groups claims by month for time-series visualization."""
+    conn = create_connection()
+    cursor = conn.cursor()
+    # Use SQLite strftime to extract just the YYYY-MM from the date
+    cursor.execute("""
+        SELECT strftime('%Y-%m', date_filed) as month, COUNT(*) as count
+        FROM claims
+        GROUP BY month
+        ORDER BY month DESC
+        LIMIT 12
+    """)
+    results = cursor.fetchall()
+    conn.close()
+    
+    # Reverse the list so chronological order goes left-to-right on the chart
+    return results[::-1]
