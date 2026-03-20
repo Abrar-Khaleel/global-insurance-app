@@ -72,6 +72,13 @@ class Dashboard:
                         relief="flat",
                         font=("Arial", 12, "bold"))
         style.map("Treeview.Heading", background=[('active', '#3484F0')])
+    
+    def center_toplevel(self, window, width, height):
+        """Calculates the exact center of the screen to spawn a pop-up window."""
+        self.root.update_idletasks() # Ensure the main window is fully rendered first
+        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        window.geometry(f"{width}x{height}+{x}+{y}")
 
     def clear_content(self):
         """Removes all widgets from the content area before showing a new page."""
@@ -143,14 +150,18 @@ class Dashboard:
     def show_policies(self):
         self.clear_content()
         
+        # Header Area
         header_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
         header_frame.pack(fill="x", pady=(0, 20))
         ctk.CTkLabel(header_frame, text="Policy Management", font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
-        ctk.CTkButton(header_frame, text="+ Create New Policy", command=self.open_add_policy_window).pack(side="right")
+        
+        # Primary Action Button
+        ctk.CTkButton(header_frame, text="+ Create New Policy", font=ctk.CTkFont(weight="bold"), 
+                      fg_color="#00cc66", hover_color="#00994d", command=self.open_add_policy_window).pack(side="right")
 
-        # Container for Treeview
-        tree_frame = ctk.CTkFrame(self.content_area)
-        tree_frame.pack(fill="both", expand=True)
+        # Treeview Container (Added padding for breathing room)
+        tree_frame = ctk.CTkFrame(self.content_area, corner_radius=10)
+        tree_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
         columns = ("ID", "Policy #", "Customer", "Type", "Start", "End", "Premium", "Status")
         self.policy_tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
@@ -161,7 +172,7 @@ class Dashboard:
             self.policy_tree.column(col, width=width)
             
         self.policy_tree.column("ID", width=50)
-        self.policy_tree.pack(fill="both", expand=True, padx=2, pady=2)
+        self.policy_tree.pack(fill="both", expand=True, padx=10, pady=10)
         
         self.refresh_policy_list()
 
@@ -172,8 +183,8 @@ class Dashboard:
         header_frame.pack(fill="x", pady=(0, 20))
         ctk.CTkLabel(header_frame, text="Financial & Ledger Reports", font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
 
-        tree_frame = ctk.CTkFrame(self.content_area)
-        tree_frame.pack(fill="both", expand=True)
+        tree_frame = ctk.CTkFrame(self.content_area, corner_radius=10)
+        tree_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
         columns = ("Transaction ID", "Policy #", "Customer", "Type", "Amount ($)", "Date")
         self.reports_tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
@@ -182,17 +193,20 @@ class Dashboard:
             self.reports_tree.heading(col, text=col)
             self.reports_tree.column(col, width=120)
             
-        self.reports_tree.pack(fill="both", expand=True, padx=2, pady=2)
+        self.reports_tree.pack(fill="both", expand=True, padx=10, pady=10)
         
         records = backend.get_financial_reports()
         for rec in records:
             self.reports_tree.insert("", tk.END, values=rec)
             
         total_payouts = sum(float(rec[4]) for rec in records if rec[3] == 'Claim Payout')
-        summary_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
-        summary_frame.pack(fill="x", pady=20)
-        ctk.CTkLabel(summary_frame, text=f"Total Claim Payouts To Date: ${total_payouts:,.2f}", font=ctk.CTkFont(size=18, weight="bold"), text_color="#ff4d4d").pack(side="right")
-    
+        
+        # Styled Summary Card
+        summary_frame = ctk.CTkFrame(self.content_area, fg_color="#331a1a", border_width=1, border_color="#ff4d4d")
+        summary_frame.pack(fill="x", pady=(20, 0), padx=5)
+        ctk.CTkLabel(summary_frame, text=f"Total Claim Payouts To Date: ${total_payouts:,.2f}", 
+                     font=ctk.CTkFont(size=18, weight="bold"), text_color="#ff4d4d").pack(side="right", padx=20, pady=15)
+
     def refresh_policy_list(self):
         for item in self.policy_tree.get_children():
             self.policy_tree.delete(item)
@@ -202,8 +216,11 @@ class Dashboard:
     def open_add_policy_window(self):
         policy_win = ctk.CTkToplevel(self.root)
         policy_win.title("Create New Policy")
-        policy_win.geometry("500x600")
-        policy_win.grab_set() # Focuses window
+        self.center_toplevel(policy_win, 500, 680)
+        policy_win.grab_set()
+
+        # Center Title
+        ctk.CTkLabel(policy_win, text="Policy Details", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(20, 10))
 
         customers_raw = backend.get_all_customers() 
         customer_map = {f"{c[1]} {c[2]} (ID: {c[0]})": c[0] for c in customers_raw}
@@ -213,27 +230,28 @@ class Dashboard:
         type_map = {f"{t[1]}": t[0] for t in types_raw}
         type_options = list(type_map.keys())
 
-        ctk.CTkLabel(policy_win, text="Select Customer:").pack(anchor="w", padx=20, pady=(20, 5))
-        cust_combo = ctk.CTkComboBox(policy_win, values=customer_options)
-        cust_combo.pack(fill="x", padx=20)
+        # Form Inputs with improved padding and heights
+        ctk.CTkLabel(policy_win, text="Select Customer:", text_color="gray90").pack(anchor="w", padx=40, pady=(10, 2))
+        cust_combo = ctk.CTkComboBox(policy_win, values=customer_options, height=35)
+        cust_combo.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(policy_win, text="Policy Type:").pack(anchor="w", padx=20, pady=(15, 5))
-        type_combo = ctk.CTkComboBox(policy_win, values=type_options)
-        type_combo.pack(fill="x", padx=20)
+        ctk.CTkLabel(policy_win, text="Policy Type:", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        type_combo = ctk.CTkComboBox(policy_win, values=type_options, height=35)
+        type_combo.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(policy_win, text="Start Date (YYYY-MM-DD):").pack(anchor="w", padx=20, pady=(15, 5))
-        start_entry = ctk.CTkEntry(policy_win)
+        ctk.CTkLabel(policy_win, text="Start Date (YYYY-MM-DD):", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        start_entry = ctk.CTkEntry(policy_win, height=35)
         start_entry.insert(0, "2025-01-01")
-        start_entry.pack(fill="x", padx=20)
+        start_entry.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(policy_win, text="End Date (YYYY-MM-DD):").pack(anchor="w", padx=20, pady=(15, 5))
-        end_entry = ctk.CTkEntry(policy_win)
+        ctk.CTkLabel(policy_win, text="End Date (YYYY-MM-DD):", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        end_entry = ctk.CTkEntry(policy_win, height=35)
         end_entry.insert(0, "2026-01-01")
-        end_entry.pack(fill="x", padx=20)
+        end_entry.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(policy_win, text="Premium Amount ($):").pack(anchor="w", padx=20, pady=(15, 5))
-        premium_entry = ctk.CTkEntry(policy_win)
-        premium_entry.pack(fill="x", padx=20)
+        ctk.CTkLabel(policy_win, text="Premium Amount ($):", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        premium_entry = ctk.CTkEntry(policy_win, height=35)
+        premium_entry.pack(fill="x", padx=40)
 
         def save_policy():
             if not cust_combo.get() or not type_combo.get() or not premium_entry.get():
@@ -255,7 +273,8 @@ class Dashboard:
             else:
                 messagebox.showerror("Error", msg)
 
-        ctk.CTkButton(policy_win, text="Create Policy", command=save_policy).pack(pady=30)
+        ctk.CTkButton(policy_win, text="Save Policy", font=ctk.CTkFont(weight="bold"), height=40,
+                      fg_color="#00cc66", hover_color="#00994d", command=save_policy).pack(pady=(30, 20), padx=40, fill="x")
         
     def show_claims(self):
         self.clear_content()
@@ -263,11 +282,15 @@ class Dashboard:
         header_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
         header_frame.pack(fill="x", pady=(0, 20))
         ctk.CTkLabel(header_frame, text="Claims Processing", font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
-        ctk.CTkButton(header_frame, text="+ File New Claim", command=self.open_file_claim_window).pack(side="right")
-        ctk.CTkButton(header_frame, text="Process Selected", command=self.open_process_claim_window, fg_color="#3399ff").pack(side="right", padx=10)
+        
+        # Action Buttons
+        ctk.CTkButton(header_frame, text="+ File New Claim", font=ctk.CTkFont(weight="bold"),
+                      fg_color="#00cc66", hover_color="#00994d", command=self.open_file_claim_window).pack(side="right")
+        ctk.CTkButton(header_frame, text="Process Selected", font=ctk.CTkFont(weight="bold"),
+                      fg_color="#3399ff", hover_color="#287acc", command=self.open_process_claim_window).pack(side="right", padx=10)
 
-        tree_frame = ctk.CTkFrame(self.content_area)
-        tree_frame.pack(fill="both", expand=True)
+        tree_frame = ctk.CTkFrame(self.content_area, corner_radius=10)
+        tree_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
         columns = ("ID", "Policy #", "Customer", "Date Filed", "Amount ($)", "Status")
         self.claims_tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
@@ -276,7 +299,7 @@ class Dashboard:
             self.claims_tree.heading(col, text=col)
             self.claims_tree.column(col, width=120)
         
-        self.claims_tree.pack(fill="both", expand=True, padx=2, pady=2)
+        self.claims_tree.pack(fill="both", expand=True, padx=10, pady=10)
         self.refresh_claims_list()
 
     def refresh_claims_list(self):
@@ -301,13 +324,13 @@ class Dashboard:
 
         process_win = ctk.CTkToplevel(self.root)
         process_win.title(f"Process Claim #{claim_id}")
-        process_win.geometry("400x250")
+        self.center_toplevel(process_win, 400, 250)
         process_win.grab_set()
 
-        ctk.CTkLabel(process_win, text=f"Requested Amount: ${req_amount}", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=20)
+        ctk.CTkLabel(process_win, text=f"Requested Amount: ${req_amount}", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(25, 15))
 
-        ctk.CTkLabel(process_win, text="Approved Amount ($):").pack(anchor="w", padx=40)
-        appr_amount_entry = ctk.CTkEntry(process_win)
+        ctk.CTkLabel(process_win, text="Approved Amount ($):", text_color="gray90").pack(anchor="w", padx=40)
+        appr_amount_entry = ctk.CTkEntry(process_win, height=35)
         appr_amount_entry.insert(0, req_amount) 
         appr_amount_entry.pack(fill="x", padx=40, pady=5)
 
@@ -322,15 +345,17 @@ class Dashboard:
                 messagebox.showerror("Error", msg)
 
         btn_frame = ctk.CTkFrame(process_win, fg_color="transparent")
-        btn_frame.pack(pady=20)
+        btn_frame.pack(pady=20, fill="x", padx=40)
 
-        ctk.CTkButton(btn_frame, text="Approve", fg_color="#00cc66", hover_color="#00994d", command=lambda: finalize('Approved')).pack(side="left", padx=10)
-        ctk.CTkButton(btn_frame, text="Reject", fg_color="#ff4d4d", hover_color="#cc0000", command=lambda: finalize('Rejected')).pack(side="left", padx=10)
+        ctk.CTkButton(btn_frame, text="Approve", font=ctk.CTkFont(weight="bold"), height=35,
+                      fg_color="#00cc66", hover_color="#00994d", command=lambda: finalize('Approved')).pack(side="left", expand=True, padx=(0, 5))
+        ctk.CTkButton(btn_frame, text="Reject", font=ctk.CTkFont(weight="bold"), height=35,
+                      fg_color="#ff4d4d", hover_color="#cc0000", command=lambda: finalize('Rejected')).pack(side="left", expand=True, padx=(5, 0))
 
     def open_file_claim_window(self):
         claim_win = ctk.CTkToplevel(self.root)
         claim_win.title("File New Claim")
-        claim_win.geometry("600x650")
+        self.center_toplevel(claim_win, 600, 780)
         claim_win.grab_set()
 
         policies = backend.get_active_policies()
@@ -341,33 +366,37 @@ class Dashboard:
             claim_win.destroy()
             return
         
-        ctk.CTkLabel(claim_win, text="Select Policy:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        policy_combo = ctk.CTkComboBox(claim_win, values=list(policy_map.keys()), width=400)
-        policy_combo.pack(anchor="w", padx=20)
+        ctk.CTkLabel(claim_win, text="New Claim Request", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(20, 10))
+        
+        ctk.CTkLabel(claim_win, text="Select Policy:", text_color="gray90").pack(anchor="w", padx=40, pady=(10, 2))
+        policy_combo = ctk.CTkComboBox(claim_win, values=list(policy_map.keys()), height=35)
+        policy_combo.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(claim_win, text="Claim Amount ($):", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=20, pady=(15, 5))
-        amount_entry = ctk.CTkEntry(claim_win)
-        amount_entry.pack(fill="x", padx=20)
+        ctk.CTkLabel(claim_win, text="Claim Amount ($):", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        amount_entry = ctk.CTkEntry(claim_win, height=35)
+        amount_entry.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(claim_win, text="Date Filed (YYYY-MM-DD):", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
-        date_entry = ctk.CTkEntry(claim_win)
+        ctk.CTkLabel(claim_win, text="Date Filed (YYYY-MM-DD):", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        date_entry = ctk.CTkEntry(claim_win, height=35)
         date_entry.insert(0, "2026-01-25")
-        date_entry.pack(fill="x", padx=20)
+        date_entry.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(claim_win, text="Incident Report Details", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=20, pady=(30, 10))
+        # Separator for Incident Details
+        ctk.CTkFrame(claim_win, height=2, fg_color="#343638").pack(fill="x", padx=40, pady=25)
+        ctk.CTkLabel(claim_win, text="Incident Details", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=40, pady=(0, 10))
 
-        ctk.CTkLabel(claim_win, text="Incident Date (YYYY-MM-DD):").pack(anchor="w", padx=20)
-        inc_date_entry = ctk.CTkEntry(claim_win)
+        ctk.CTkLabel(claim_win, text="Incident Date (YYYY-MM-DD):", text_color="gray90").pack(anchor="w", padx=40)
+        inc_date_entry = ctk.CTkEntry(claim_win, height=35)
         inc_date_entry.insert(0, "2026-01-24")
-        inc_date_entry.pack(fill="x", padx=20, pady=5)
+        inc_date_entry.pack(fill="x", padx=40, pady=5)
 
-        ctk.CTkLabel(claim_win, text="Incident Location:").pack(anchor="w", padx=20)
-        location_entry = ctk.CTkEntry(claim_win)
-        location_entry.pack(fill="x", padx=20, pady=5)
+        ctk.CTkLabel(claim_win, text="Location:", text_color="gray90").pack(anchor="w", padx=40)
+        location_entry = ctk.CTkEntry(claim_win, height=35)
+        location_entry.pack(fill="x", padx=40, pady=5)
 
-        ctk.CTkLabel(claim_win, text="Description of Incident:").pack(anchor="w", padx=20)
+        ctk.CTkLabel(claim_win, text="Description:", text_color="gray90").pack(anchor="w", padx=40)
         desc_entry = ctk.CTkTextbox(claim_win, height=80)
-        desc_entry.pack(fill="x", padx=20, pady=5)
+        desc_entry.pack(fill="x", padx=40, pady=5)
 
         def submit_claim():
             if not policy_combo.get() or not amount_entry.get():
@@ -389,7 +418,8 @@ class Dashboard:
             else:
                 messagebox.showerror("Error", msg)
 
-        ctk.CTkButton(claim_win, text="Submit Claim Request", command=submit_claim).pack(pady=30)
+        ctk.CTkButton(claim_win, text="Submit Request", font=ctk.CTkFont(weight="bold"), height=40,
+                      fg_color="#00cc66", hover_color="#00994d", command=submit_claim).pack(pady=(20, 20), padx=40, fill="x")
 
     def show_customers(self):
         self.clear_content()
@@ -398,20 +428,22 @@ class Dashboard:
         header_frame.pack(fill="x", pady=(0, 20))
         ctk.CTkLabel(header_frame, text="Customer Directory", font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
         
-        ctk.CTkButton(header_frame, text="+ Add New Customer", command=self.open_add_customer_window).pack(side="right")
-        ctk.CTkButton(header_frame, text="Edit Selected", command=self.open_edit_customer_window, fg_color="transparent", border_width=1).pack(side="right", padx=10)
+        ctk.CTkButton(header_frame, text="+ Add New Customer", font=ctk.CTkFont(weight="bold"),
+                      fg_color="#00cc66", hover_color="#00994d", command=self.open_add_customer_window).pack(side="right")
+        ctk.CTkButton(header_frame, text="Edit Selected", font=ctk.CTkFont(weight="bold"),
+                      fg_color="transparent", border_width=1, hover_color="#343638", command=self.open_edit_customer_window).pack(side="right", padx=10)
 
+        # Modern Search Bar Layout
         search_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
         search_frame.pack(fill="x", pady=(0, 10))
         
-        ctk.CTkLabel(search_frame, text="Search by Last Name:").pack(side="left", padx=(0, 10))
-        self.search_entry = ctk.CTkEntry(search_frame, width=200)
+        self.search_entry = ctk.CTkEntry(search_frame, width=250, placeholder_text="Search by Last Name...")
         self.search_entry.pack(side="left", padx=(0, 10))
         ctk.CTkButton(search_frame, text="Search", width=100, command=self.perform_search).pack(side="left")
-        ctk.CTkButton(search_frame, text="Reset", width=100, fg_color="gray", command=self.refresh_customer_list).pack(side="left", padx=10)
+        ctk.CTkButton(search_frame, text="Clear", width=100, fg_color="#4d4d4d", hover_color="#333333", command=self.refresh_customer_list).pack(side="left", padx=10)
 
-        tree_frame = ctk.CTkFrame(self.content_area)
-        tree_frame.pack(fill="both", expand=True)
+        tree_frame = ctk.CTkFrame(self.content_area, corner_radius=10)
+        tree_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
         columns = ("ID", "First Name", "Last Name", "Email", "Phone")
         self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
@@ -421,7 +453,7 @@ class Dashboard:
             self.tree.column(col, width=150) 
             
         self.tree.column("ID", width=50) 
-        self.tree.pack(fill="both", expand=True, padx=2, pady=2)
+        self.tree.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.refresh_customer_list()
 
@@ -443,28 +475,30 @@ class Dashboard:
     def open_add_customer_window(self):
         add_window = ctk.CTkToplevel(self.root)
         add_window.title("Add New Customer")
-        add_window.geometry("450x550")
+        self.center_toplevel(add_window, 450, 650)
         add_window.grab_set()
+
+        ctk.CTkLabel(add_window, text="Customer Profile", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(20, 10))
         
-        ctk.CTkLabel(add_window, text="First Name:").pack(anchor="w", padx=30, pady=(20, 5))
-        fname_entry = ctk.CTkEntry(add_window)
-        fname_entry.pack(fill="x", padx=30)
+        ctk.CTkLabel(add_window, text="First Name:", text_color="gray90").pack(anchor="w", padx=40, pady=(10, 2))
+        fname_entry = ctk.CTkEntry(add_window, height=35)
+        fname_entry.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(add_window, text="Last Name:").pack(anchor="w", padx=30, pady=(15, 5))
-        lname_entry = ctk.CTkEntry(add_window)
-        lname_entry.pack(fill="x", padx=30)
+        ctk.CTkLabel(add_window, text="Last Name:", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        lname_entry = ctk.CTkEntry(add_window, height=35)
+        lname_entry.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(add_window, text="Email:").pack(anchor="w", padx=30, pady=(15, 5))
-        email_entry = ctk.CTkEntry(add_window)
-        email_entry.pack(fill="x", padx=30)
+        ctk.CTkLabel(add_window, text="Email:", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        email_entry = ctk.CTkEntry(add_window, height=35)
+        email_entry.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(add_window, text="Phone:").pack(anchor="w", padx=30, pady=(15, 5))
-        phone_entry = ctk.CTkEntry(add_window)
-        phone_entry.pack(fill="x", padx=30)
+        ctk.CTkLabel(add_window, text="Phone:", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        phone_entry = ctk.CTkEntry(add_window, height=35)
+        phone_entry.pack(fill="x", padx=40)
         
-        ctk.CTkLabel(add_window, text="Address:").pack(anchor="w", padx=30, pady=(15, 5))
-        address_entry = ctk.CTkEntry(add_window)
-        address_entry.pack(fill="x", padx=30)
+        ctk.CTkLabel(add_window, text="Address:", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        address_entry = ctk.CTkEntry(add_window, height=35)
+        address_entry.pack(fill="x", padx=40)
 
         def save_action():
             success, message = backend.add_customer(
@@ -478,7 +512,8 @@ class Dashboard:
             else:
                 messagebox.showerror("Error", message)
 
-        ctk.CTkButton(add_window, text="Save Customer", command=save_action).pack(pady=30)
+        ctk.CTkButton(add_window, text="Save Customer", font=ctk.CTkFont(weight="bold"), height=40,
+                      fg_color="#00cc66", hover_color="#00994d", command=save_action).pack(pady=(30, 20), padx=40, fill="x")
     
     def open_edit_customer_window(self):
         selected = self.tree.selection()
@@ -493,32 +528,34 @@ class Dashboard:
 
         edit_window = ctk.CTkToplevel(self.root)
         edit_window.title(f"Edit Customer #{customer_id}")
-        edit_window.geometry("450x550")
+        self.center_toplevel(edit_window, 450, 650)
         edit_window.grab_set()
+
+        ctk.CTkLabel(edit_window, text="Edit Profile", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(20, 10))
         
-        ctk.CTkLabel(edit_window, text="First Name:").pack(anchor="w", padx=30, pady=(20, 5))
-        fname_entry = ctk.CTkEntry(edit_window)
+        ctk.CTkLabel(edit_window, text="First Name:", text_color="gray90").pack(anchor="w", padx=40, pady=(10, 2))
+        fname_entry = ctk.CTkEntry(edit_window, height=35)
         fname_entry.insert(0, curr_fname)
-        fname_entry.pack(fill="x", padx=30)
+        fname_entry.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(edit_window, text="Last Name:").pack(anchor="w", padx=30, pady=(15, 5))
-        lname_entry = ctk.CTkEntry(edit_window)
+        ctk.CTkLabel(edit_window, text="Last Name:", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        lname_entry = ctk.CTkEntry(edit_window, height=35)
         lname_entry.insert(0, curr_lname)
-        lname_entry.pack(fill="x", padx=30)
+        lname_entry.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(edit_window, text="Email:").pack(anchor="w", padx=30, pady=(15, 5))
-        email_entry = ctk.CTkEntry(edit_window)
+        ctk.CTkLabel(edit_window, text="Email:", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        email_entry = ctk.CTkEntry(edit_window, height=35)
         email_entry.insert(0, curr_email)
-        email_entry.pack(fill="x", padx=30)
+        email_entry.pack(fill="x", padx=40)
 
-        ctk.CTkLabel(edit_window, text="Phone:").pack(anchor="w", padx=30, pady=(15, 5))
-        phone_entry = ctk.CTkEntry(edit_window)
+        ctk.CTkLabel(edit_window, text="Phone:", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        phone_entry = ctk.CTkEntry(edit_window, height=35)
         phone_entry.insert(0, curr_phone if curr_phone != 'None' else '')
-        phone_entry.pack(fill="x", padx=30)
+        phone_entry.pack(fill="x", padx=40)
         
-        ctk.CTkLabel(edit_window, text="Address:").pack(anchor="w", padx=30, pady=(15, 5))
-        address_entry = ctk.CTkEntry(edit_window)
-        address_entry.pack(fill="x", padx=30)
+        ctk.CTkLabel(edit_window, text="Address:", text_color="gray90").pack(anchor="w", padx=40, pady=(15, 2))
+        address_entry = ctk.CTkEntry(edit_window, height=35)
+        address_entry.pack(fill="x", padx=40)
 
         def save_changes():
             success, message = backend.update_customer(
@@ -532,7 +569,8 @@ class Dashboard:
             else:
                 messagebox.showerror("Error", message)
 
-        ctk.CTkButton(edit_window, text="Save Changes", command=save_changes).pack(pady=30)
+        ctk.CTkButton(edit_window, text="Update Profile", font=ctk.CTkFont(weight="bold"), height=40,
+                      fg_color="#3399ff", hover_color="#287acc", command=save_changes).pack(pady=(30, 20), padx=40, fill="x")
 
     def logout(self):
         self.root.destroy()
