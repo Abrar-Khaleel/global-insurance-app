@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
+import customtkinter as ctk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import backend
@@ -8,45 +9,69 @@ class Dashboard:
     def __init__(self, root, role):
         self.root = root
         self.role = role
-        self.root.title(f"Global Insurance Inc. - {role} Dashboard")
-        self.root.geometry("1000x600")
+        self.root.title(f"Global Insurance Inc. - {role} Dashboard v2.0")
+        self.root.geometry("1100x700")
 
-        # --- STYLE CONFIGURATION ---
-        style = ttk.Style()
-        style.configure("Sidebar.TFrame", background="#E1E1E1")
-        style.configure("Sidebar.TButton", font=("Arial", 12), padding=10)
-        
-        # --- MAIN LAYOUT ---
-        # PanedWindow to separate the Sidebar (Left) from Content (Right)
-        self.paned_window = tk.PanedWindow(self.root, orient=tk.HORIZONTAL)
-        self.paned_window.pack(fill=tk.BOTH, expand=True)
+        # --- GRID LAYOUT SETUP ---
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_columnconfigure(1, weight=1)
 
-        # 1. SIDEBAR (Navigation)
-        self.sidebar = ttk.Frame(self.paned_window, style="Sidebar.TFrame", width=200)
-        self.paned_window.add(self.sidebar)
+        # 1. SIDEBAR (Fixed Width)
+        self.sidebar = ctk.CTkFrame(self.root, width=200, corner_radius=0)
+        self.sidebar.grid(row=0, column=0, sticky="nsew")
+        self.sidebar.grid_rowconfigure(8, weight=1) # Pushes logout to the bottom
 
-        # 2. CONTENT AREA (Where forms/tables will appear)
-        self.content_area = ttk.Frame(self.paned_window, padding=20)
-        self.paned_window.add(self.content_area)
+        # Sidebar Title
+        ctk.CTkLabel(self.sidebar, text="Global Ins.", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=(20, 30))
+
+        # 2. CONTENT AREA (Dynamic)
+        # using fg_color="transparent" so it blends with the main window background
+        self.content_area = ctk.CTkFrame(self.root, corner_radius=0, fg_color="transparent")
+        self.content_area.grid(row=0, column=1, sticky="nsew", padx=30, pady=30)
 
         # --- NAVIGATION BUTTONS ---
-        # storing buttons in a list to manage them easily
         self.nav_buttons = [
-            ("Home", self.show_home),
+            ("Dashboard", self.show_home),
             ("Manage Policies", self.show_policies),
             ("Manage Claims", self.show_claims),
             ("Customers", self.show_customers),
             ("Financial Reports", self.show_reports),
-            ("Analytics", self.show_analytics),
-            ("Logout", self.logout)
         ]
 
-        for text, command in self.nav_buttons:
-            btn = ttk.Button(self.sidebar, text=text, command=command, style="Sidebar.TButton")
-            btn.pack(fill=tk.X, pady=5, padx=5)
+        # Render Main Nav Buttons
+        for idx, (text, command) in enumerate(self.nav_buttons, start=1):
+            btn = ctk.CTkButton(self.sidebar, text=text, command=command, fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"), anchor="w")
+            btn.grid(row=idx, column=0, pady=5, padx=20, sticky="ew")
+
+        # Logout Button at the bottom
+        logout_btn = ctk.CTkButton(self.sidebar, text="Logout", command=self.logout, fg_color="#ff4d4d", hover_color="#cc0000")
+        logout_btn.grid(row=9, column=0, pady=20, padx=20, sticky="ew")
+
+        # Apply custom styling to the standard ttk.Treeview
+        self.apply_treeview_style()
 
         # Load the Home screen by default
         self.show_home()
+
+    def apply_treeview_style(self):
+        """Forces the standard Tkinter Treeview to look like a modern Dark Mode widget."""
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure("Treeview",
+                        background="#2b2b2b",
+                        foreground="white",
+                        rowheight=30,
+                        fieldbackground="#2b2b2b",
+                        bordercolor="#343638",
+                        borderwidth=0,
+                        font=("Arial", 11))
+        style.map('Treeview', background=[('selected', '#1f538d')])
+        style.configure("Treeview.Heading",
+                        background="#343638",
+                        foreground="white",
+                        relief="flat",
+                        font=("Arial", 12, "bold"))
+        style.map("Treeview.Heading", background=[('active', '#3484F0')])
 
     def clear_content(self):
         """Removes all widgets from the content area before showing a new page."""
@@ -57,29 +82,78 @@ class Dashboard:
     
     def show_home(self):
         self.clear_content()
-        ttk.Label(self.content_area, text=f"Welcome, {self.role}!", font=("Arial", 24)).pack(pady=20)
-        ttk.Label(self.content_area, text="Select an option from the sidebar to begin.").pack()
         
-        stats_frame = ttk.Frame(self.content_area)
-        stats_frame.pack(pady=30, fill=tk.X)
+        # 1. Welcome Header
+        header_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 20))
+        ctk.CTkLabel(header_frame, text=f"Welcome, {self.role}!", font=ctk.CTkFont(size=28, weight="bold")).pack(side="left")
+
+        # Fetch Analytics Data from Backend
+        premium, payouts, rate = backend.get_analytics_kpis()
         
-        # Dummy stats for now
-        ttk.Label(stats_frame, text="Pending Claims: 12", foreground="red", font=("Arial", 14)).pack(side=tk.LEFT, padx=20)
-        ttk.Label(stats_frame, text="Active Policies: 145", foreground="green", font=("Arial", 14)).pack(side=tk.LEFT, padx=20)
+        # 2. KPI Cards (Top Row)
+        kpi_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
+        kpi_frame.pack(fill="x", pady=(0, 20))
+
+        def create_kpi_card(parent, title, value, color):
+            # 1. Remove 'padding' from the Frame creation
+            card = ctk.CTkFrame(parent, corner_radius=10)
+            card.pack(side="left", fill="x", expand=True, padx=10)
+            
+            # 2. Add padx and pady to the labels to create the internal spacing
+            ctk.CTkLabel(card, text=title, text_color="gray", font=ctk.CTkFont(size=14)).pack(anchor="w", padx=20, pady=(20, 0))
+            ctk.CTkLabel(card, text=value, font=ctk.CTkFont(size=26, weight="bold"), text_color=color).pack(anchor="w", padx=20, pady=(5, 20))
+
+        create_kpi_card(kpi_frame, "Active Premiums", f"${premium:,.2f}", "#00cc66")
+        create_kpi_card(kpi_frame, "Total Payouts", f"${payouts:,.2f}", "#ff4d4d")
+        create_kpi_card(kpi_frame, "Approval Rate", f"{rate:.1f}%", "#3399ff")
+
+        # 3. Analytics Chart (Bottom Area)
+        chart_frame = ctk.CTkFrame(self.content_area, corner_radius=10)
+        chart_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+        chart_data = backend.get_claims_by_month()
+        
+        if chart_data:
+            months = [row[0] for row in chart_data]
+            counts = [row[1] for row in chart_data]
+
+            fig = Figure(figsize=(8, 4), dpi=100, facecolor='#2b2b2b')
+            ax = fig.add_subplot(111)
+            ax.set_facecolor('#2b2b2b')
+            ax.bar(months, counts, color='#4da6ff')
+            
+            ax.set_title("Claims Filed (Trailing 12 Months)", fontsize=14, color='white', pad=15)
+            ax.set_ylabel("Volume of Claims", fontsize=10, color='white')
+            
+            ax.tick_params(axis='x', rotation=45, colors='white', labelcolor='white')
+            ax.tick_params(axis='y', colors='white', labelcolor='white')
+            for spine in ax.spines.values():
+                spine.set_edgecolor('white')
+            
+            fig.tight_layout()
+
+            # Embed the Figure into Tkinter/CustomTkinter
+            canvas = FigureCanvasTkAgg(fig, master=chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+        else:
+            ctk.CTkLabel(chart_frame, text="Not enough data to generate chart.", text_color="gray").pack(pady=40)
 
     def show_policies(self):
         self.clear_content()
         
-        # 1. Header
-        header_frame = ttk.Frame(self.content_area)
-        header_frame.pack(fill=tk.X, pady=(0, 20))
-        ttk.Label(header_frame, text="Policy Management", font=("Arial", 18, "bold")).pack(side=tk.LEFT)
-        ttk.Button(header_frame, text="+ Create New Policy", command=self.open_add_policy_window).pack(side=tk.RIGHT)
+        header_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 20))
+        ctk.CTkLabel(header_frame, text="Policy Management", font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
+        ctk.CTkButton(header_frame, text="+ Create New Policy", command=self.open_add_policy_window).pack(side="right")
 
-        # 2. Policy List (Treeview)
-        # Note: We display names, not IDs, for better UX
+        # Container for Treeview
+        tree_frame = ctk.CTkFrame(self.content_area)
+        tree_frame.pack(fill="both", expand=True)
+
         columns = ("ID", "Policy #", "Customer", "Type", "Start", "End", "Premium", "Status")
-        self.policy_tree = ttk.Treeview(self.content_area, columns=columns, show="headings")
+        self.policy_tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
         
         for col in columns:
             self.policy_tree.heading(col, text=col)
@@ -87,156 +161,85 @@ class Dashboard:
             self.policy_tree.column(col, width=width)
             
         self.policy_tree.column("ID", width=50)
-        self.policy_tree.pack(fill=tk.BOTH, expand=True)
+        self.policy_tree.pack(fill="both", expand=True, padx=2, pady=2)
         
         self.refresh_policy_list()
 
     def show_reports(self):
         self.clear_content()
         
-        # Header
-        header = ttk.Frame(self.content_area)
-        header.pack(fill=tk.X, pady=(0, 20))
-        ttk.Label(header, text="Financial & Ledger Reports", font=("Arial", 18, "bold")).pack(side=tk.LEFT)
+        header_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 20))
+        ctk.CTkLabel(header_frame, text="Financial & Ledger Reports", font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
 
-        # Ledger List (Treeview)
+        tree_frame = ctk.CTkFrame(self.content_area)
+        tree_frame.pack(fill="both", expand=True)
+
         columns = ("Transaction ID", "Policy #", "Customer", "Type", "Amount ($)", "Date")
-        self.reports_tree = ttk.Treeview(self.content_area, columns=columns, show="headings")
+        self.reports_tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
         
         for col in columns:
             self.reports_tree.heading(col, text=col)
             self.reports_tree.column(col, width=120)
             
-        self.reports_tree.pack(fill=tk.BOTH, expand=True)
+        self.reports_tree.pack(fill="both", expand=True, padx=2, pady=2)
         
-        # Load Data
         records = backend.get_financial_reports()
         for rec in records:
             self.reports_tree.insert("", tk.END, values=rec)
             
-        # Quick summary 
         total_payouts = sum(float(rec[4]) for rec in records if rec[3] == 'Claim Payout')
-        summary_frame = ttk.Frame(self.content_area)
-        summary_frame.pack(fill=tk.X, pady=20)
-        ttk.Label(summary_frame, text=f"Total Claim Payouts To Date: ${total_payouts:.2f}", font=("Arial", 14, "bold"), foreground="red").pack(side=tk.RIGHT)
+        summary_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
+        summary_frame.pack(fill="x", pady=20)
+        ctk.CTkLabel(summary_frame, text=f"Total Claim Payouts To Date: ${total_payouts:,.2f}", font=ctk.CTkFont(size=18, weight="bold"), text_color="#ff4d4d").pack(side="right")
     
-    def show_analytics(self):
-        self.clear_content()
-        
-        # 1. Header
-        header = ttk.Frame(self.content_area)
-        header.pack(fill=tk.X, pady=(0, 20))
-        ttk.Label(header, text="Analytics & Intelligence", font=("Arial", 18, "bold")).pack(side=tk.LEFT)
-
-        # 2. Fetch KPI Data
-        premium, payouts, rate = backend.get_analytics_kpis()
-        
-        # 3. Build KPI Cards
-        kpi_frame = ttk.Frame(self.content_area)
-        kpi_frame.pack(fill=tk.X, pady=10)
-
-        # Premium Card
-        ttk.Label(kpi_frame, text=f"Active Premiums\n${premium:,.2f}", font=("Arial", 14, "bold"), 
-                  background="#e6f2ff", padding=15, anchor="center").pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
-        # Payouts Card
-        ttk.Label(kpi_frame, text=f"Total Payouts\n${payouts:,.2f}", font=("Arial", 14, "bold"), 
-                  background="#ffe6e6", padding=15, anchor="center").pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
-        # Approval Rate Card
-        ttk.Label(kpi_frame, text=f"Approval Rate\n{rate:.1f}%", font=("Arial", 14, "bold"), 
-                  background="#e6ffe6", padding=15, anchor="center").pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
-
-        # 4. Build the Matplotlib Chart
-        chart_data = backend.get_claims_by_month()
-        
-        if chart_data:
-            months = [row[0] for row in chart_data]
-            counts = [row[1] for row in chart_data]
-
-            # Create a Figure (the blank canvas)
-            fig = Figure(figsize=(8, 4), dpi=100, facecolor='#2b2b2b')
-            ax = fig.add_subplot(111) # 1x1 grid, first subplot
-            ax.set_facecolor('#2b2b2b')
-            
-            # Plot the data
-            ax.bar(months, counts, color='#4da6ff')
-
-            ax.set_title("Claims Filed (Trailing 12 Months)", fontsize=14, color = 'white')
-            ax.set_ylabel("Volume of Claims", fontsize=10, color = 'white')
-
-            ax.tick_params(axis='x', rotation=45, color = 'white', labelcolor='white') # Tilt the month labels so they fit
-            ax.tick_params(axis='y', colors='white', labelcolor='white')
-            for spine in ax.spines.values():
-                spine.set_edgecolor('white')
-            
-            fig.tight_layout() # Prevent labels from getting cut off
-
-            # Embed the Figure into Tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.content_area)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, pady=(20, 0))
-        else:
-            ttk.Label(self.content_area, text="Not enough data to generate chart.", font=("Arial", 12)).pack(pady=40)
-
     def refresh_policy_list(self):
         for item in self.policy_tree.get_children():
             self.policy_tree.delete(item)
-        
-        policies = backend.get_all_policies()
-        for pol in policies:
+        for pol in backend.get_all_policies():
             self.policy_tree.insert("", tk.END, values=pol)
 
     def open_add_policy_window(self):
-        policy_win = tk.Toplevel(self.root)
+        policy_win = ctk.CTkToplevel(self.root)
         policy_win.title("Create New Policy")
-        policy_win.geometry("500x500")
+        policy_win.geometry("500x600")
+        policy_win.grab_set() # Focuses window
 
-        # --- Data Loading for Dropdowns ---
-        # Get Customers: returns list of (id, first, last...)
         customers_raw = backend.get_all_customers() 
-        # Create a dict to map "Name (ID)" string back to ID
         customer_map = {f"{c[1]} {c[2]} (ID: {c[0]})": c[0] for c in customers_raw}
         customer_options = list(customer_map.keys())
 
-        # Get Policy Types
         types_raw = backend.get_policy_types()
         type_map = {f"{t[1]}": t[0] for t in types_raw}
         type_options = list(type_map.keys())
 
-        # --- Form Fields ---
-        
-        # 1. Select Customer
-        ttk.Label(policy_win, text="Select Customer:").pack(anchor=tk.W, padx=20, pady=(20, 5))
-        cust_combo = ttk.Combobox(policy_win, values=customer_options, state="readonly")
-        cust_combo.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(policy_win, text="Select Customer:").pack(anchor="w", padx=20, pady=(20, 5))
+        cust_combo = ctk.CTkComboBox(policy_win, values=customer_options)
+        cust_combo.pack(fill="x", padx=20)
 
-        # 2. Select Policy Type
-        ttk.Label(policy_win, text="Policy Type:").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        type_combo = ttk.Combobox(policy_win, values=type_options, state="readonly")
-        type_combo.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(policy_win, text="Policy Type:").pack(anchor="w", padx=20, pady=(15, 5))
+        type_combo = ctk.CTkComboBox(policy_win, values=type_options)
+        type_combo.pack(fill="x", padx=20)
 
-        # 3. Dates (Text Entry YYYY-MM-DD)
-        ttk.Label(policy_win, text="Start Date (YYYY-MM-DD):").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        start_entry = ttk.Entry(policy_win)
-        start_entry.insert(0, "2025-01-01") # Default value
-        start_entry.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(policy_win, text="Start Date (YYYY-MM-DD):").pack(anchor="w", padx=20, pady=(15, 5))
+        start_entry = ctk.CTkEntry(policy_win)
+        start_entry.insert(0, "2025-01-01")
+        start_entry.pack(fill="x", padx=20)
 
-        ttk.Label(policy_win, text="End Date (YYYY-MM-DD):").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        end_entry = ttk.Entry(policy_win)
+        ctk.CTkLabel(policy_win, text="End Date (YYYY-MM-DD):").pack(anchor="w", padx=20, pady=(15, 5))
+        end_entry = ctk.CTkEntry(policy_win)
         end_entry.insert(0, "2026-01-01")
-        end_entry.pack(fill=tk.X, padx=20)
+        end_entry.pack(fill="x", padx=20)
 
-        # 4. Premium
-        ttk.Label(policy_win, text="Premium Amount ($):").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        premium_entry = ttk.Entry(policy_win)
-        premium_entry.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(policy_win, text="Premium Amount ($):").pack(anchor="w", padx=20, pady=(15, 5))
+        premium_entry = ctk.CTkEntry(policy_win)
+        premium_entry.pack(fill="x", padx=20)
 
         def save_policy():
-            # Validation
             if not cust_combo.get() or not type_combo.get() or not premium_entry.get():
-                tk.messagebox.showerror("Error", "All fields are required!")
+                messagebox.showerror("Error", "All fields are required!")
                 return
             
-            # Map names back to IDs
             selected_cust_id = customer_map[cust_combo.get()]
             selected_type_id = type_map[type_combo.get()]
             
@@ -246,157 +249,133 @@ class Dashboard:
             )
             
             if success:
-                tk.messagebox.showinfo("Success", msg)
+                messagebox.showinfo("Success", msg)
                 policy_win.destroy()
                 self.refresh_policy_list()
             else:
-                tk.messagebox.showerror("Error", msg)
+                messagebox.showerror("Error", msg)
 
-        ttk.Button(policy_win, text="Create Policy", command=save_policy).pack(pady=30)
+        ctk.CTkButton(policy_win, text="Create Policy", command=save_policy).pack(pady=30)
         
     def show_claims(self):
         self.clear_content()
         
-        # 1. Header
-        header = ttk.Frame(self.content_area)
-        header.pack(fill=tk.X, pady=(0, 20))
-        ttk.Label(header, text="Claims Processing", font=("Arial", 18, "bold")).pack(side=tk.LEFT)
-        ttk.Button(header, text="+ File New Claim", command=self.open_file_claim_window).pack(side=tk.RIGHT)
-        ttk.Button(header, text="Process Selected", command=self.open_process_claim_window).pack(side=tk.RIGHT, padx=10)
+        header_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 20))
+        ctk.CTkLabel(header_frame, text="Claims Processing", font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
+        ctk.CTkButton(header_frame, text="+ File New Claim", command=self.open_file_claim_window).pack(side="right")
+        ctk.CTkButton(header_frame, text="Process Selected", command=self.open_process_claim_window, fg_color="#3399ff").pack(side="right", padx=10)
 
-        # 2. Claims List (Treeview)
+        tree_frame = ctk.CTkFrame(self.content_area)
+        tree_frame.pack(fill="both", expand=True)
+
         columns = ("ID", "Policy #", "Customer", "Date Filed", "Amount ($)", "Status")
-        self.claims_tree = ttk.Treeview(self.content_area, columns=columns, show="headings")
+        self.claims_tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
         
         for col in columns:
             self.claims_tree.heading(col, text=col)
             self.claims_tree.column(col, width=120)
         
-        # Color Code the Status rows (Optional Visual Flair)
-        self.claims_tree.tag_configure('Pending', foreground='orange')
-        self.claims_tree.tag_configure('Approved', foreground='green')
-        self.claims_tree.tag_configure('Rejected', foreground='red')
-
-        self.claims_tree.pack(fill=tk.BOTH, expand=True)
+        self.claims_tree.pack(fill="both", expand=True, padx=2, pady=2)
         self.refresh_claims_list()
 
     def refresh_claims_list(self):
         for item in self.claims_tree.get_children():
             self.claims_tree.delete(item)
-            
-        claims = backend.get_all_claims()
-        for cl in claims:
-            # cl[5] is the status column index
-            self.claims_tree.insert("", tk.END, values=cl, tags=(cl[5],))
+        for cl in backend.get_all_claims():
+            self.claims_tree.insert("", tk.END, values=cl)
 
     def open_process_claim_window(self):
-        """Opens a window to approve or reject a selected claim."""
-        # 1. Check if a row is selected
         selected = self.claims_tree.selection()
         if not selected:
-            tk.messagebox.showwarning("Selection Required", "Please click on a claim in the list first.")
+            messagebox.showwarning("Selection Required", "Please click on a claim in the list first.")
             return
 
-        # 2. Get data from the selected row
         item = self.claims_tree.item(selected[0])
         values = item['values']
-        claim_id = values[0]
-        req_amount = values[4]
-        current_status = values[5]
+        claim_id, req_amount, current_status = values[0], values[4], values[5]
 
-        # 3. Prevent processing already completed claims
         if current_status != 'Pending':
-            tk.messagebox.showinfo("Notice", f"This claim has already been {current_status}.")
+            messagebox.showinfo("Notice", f"This claim has already been {current_status}.")
             return
 
-        # 4. Build the popup window
-        process_win = tk.Toplevel(self.root)
+        process_win = ctk.CTkToplevel(self.root)
         process_win.title(f"Process Claim #{claim_id}")
-        process_win.geometry("350x200")
+        process_win.geometry("400x250")
+        process_win.grab_set()
 
-        ttk.Label(process_win, text=f"Requested Amount: ${req_amount}", font=("Arial", 12, "bold")).pack(pady=15)
+        ctk.CTkLabel(process_win, text=f"Requested Amount: ${req_amount}", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=20)
 
-        ttk.Label(process_win, text="Approved Amount ($):").pack(anchor=tk.W, padx=20)
-        appr_amount_entry = ttk.Entry(process_win)
-        appr_amount_entry.insert(0, req_amount) # Default to fully approving the requested amount
-        appr_amount_entry.pack(fill=tk.X, padx=20, pady=5)
+        ctk.CTkLabel(process_win, text="Approved Amount ($):").pack(anchor="w", padx=40)
+        appr_amount_entry = ctk.CTkEntry(process_win)
+        appr_amount_entry.insert(0, req_amount) 
+        appr_amount_entry.pack(fill="x", padx=40, pady=5)
 
         def finalize(status):
-            # If rejected, override the entry to 0.0
             final_amt = 0.0 if status == 'Rejected' else appr_amount_entry.get()
-            
             success, msg = backend.process_claim(claim_id, status, final_amt)
             if success:
-                tk.messagebox.showinfo("Success", msg)
+                messagebox.showinfo("Success", msg)
                 process_win.destroy()
-                self.refresh_claims_list() # Updates the table colors immediately
+                self.refresh_claims_list() 
             else:
-                tk.messagebox.showerror("Error", msg)
+                messagebox.showerror("Error", msg)
 
-        # Buttons Frame
-        btn_frame = ttk.Frame(process_win)
+        btn_frame = ctk.CTkFrame(process_win, fg_color="transparent")
         btn_frame.pack(pady=20)
 
-        ttk.Button(btn_frame, text="Approve", command=lambda: finalize('Approved')).pack(side=tk.LEFT, padx=10)
-        ttk.Button(btn_frame, text="Reject", command=lambda: finalize('Rejected')).pack(side=tk.LEFT, padx=10)
+        ctk.CTkButton(btn_frame, text="Approve", fg_color="#00cc66", hover_color="#00994d", command=lambda: finalize('Approved')).pack(side="left", padx=10)
+        ctk.CTkButton(btn_frame, text="Reject", fg_color="#ff4d4d", hover_color="#cc0000", command=lambda: finalize('Rejected')).pack(side="left", padx=10)
 
     def open_file_claim_window(self):
-        claim_win = tk.Toplevel(self.root)
+        claim_win = ctk.CTkToplevel(self.root)
         claim_win.title("File New Claim")
-        claim_win.geometry("600x600")
+        claim_win.geometry("600x650")
+        claim_win.grab_set()
 
-        # --- Load Policies for Dropdown ---
         policies = backend.get_active_policies()
-        # Create map: "Policy # - Customer Name" -> ID
         policy_map = {f"{p[1]} - {p[2]} {p[3]}": p[0] for p in policies}
         
         if not policy_map:
-            tk.messagebox.showerror("Error", "No Active Policies found. Create a policy first.")
+            messagebox.showerror("Error", "No Active Policies found. Create a policy first.")
             claim_win.destroy()
             return
-
-        # --- Form Layout ---
         
-        # Section 1: Policy Info
-        ttk.Label(claim_win, text="Select Policy:", font=("Arial", 10, "bold")).pack(anchor=tk.W, padx=20, pady=(20, 5))
-        policy_combo = ttk.Combobox(claim_win, values=list(policy_map.keys()), state="readonly", width=50)
-        policy_combo.pack(padx=20)
+        ctk.CTkLabel(claim_win, text="Select Policy:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        policy_combo = ctk.CTkComboBox(claim_win, values=list(policy_map.keys()), width=400)
+        policy_combo.pack(anchor="w", padx=20)
 
-        # Section 2: Financials
-        ttk.Label(claim_win, text="Claim Amount ($):", font=("Arial", 10, "bold")).pack(anchor=tk.W, padx=20, pady=(15, 5))
-        amount_entry = ttk.Entry(claim_win)
-        amount_entry.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(claim_win, text="Claim Amount ($):", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=20, pady=(15, 5))
+        amount_entry = ctk.CTkEntry(claim_win)
+        amount_entry.pack(fill="x", padx=20)
 
-        ttk.Label(claim_win, text="Date Filed (YYYY-MM-DD):", font=("Arial", 10, "bold")).pack(anchor=tk.W, padx=20, pady=(10, 5))
-        date_entry = ttk.Entry(claim_win)
+        ctk.CTkLabel(claim_win, text="Date Filed (YYYY-MM-DD):", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        date_entry = ctk.CTkEntry(claim_win)
         date_entry.insert(0, "2026-01-25")
-        date_entry.pack(fill=tk.X, padx=20)
+        date_entry.pack(fill="x", padx=20)
 
-        # Section 3: Incident Details (The "Story")
-        ttk.Separator(claim_win, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=20)
-        ttk.Label(claim_win, text="Incident Report Details", font=("Arial", 12, "bold")).pack(pady=(0, 10))
+        ctk.CTkLabel(claim_win, text="Incident Report Details", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=20, pady=(30, 10))
 
-        ttk.Label(claim_win, text="Incident Date (YYYY-MM-DD):").pack(anchor=tk.W, padx=20)
-        inc_date_entry = ttk.Entry(claim_win)
+        ctk.CTkLabel(claim_win, text="Incident Date (YYYY-MM-DD):").pack(anchor="w", padx=20)
+        inc_date_entry = ctk.CTkEntry(claim_win)
         inc_date_entry.insert(0, "2026-01-24")
-        inc_date_entry.pack(fill=tk.X, padx=20, pady=5)
+        inc_date_entry.pack(fill="x", padx=20, pady=5)
 
-        ttk.Label(claim_win, text="Incident Location:").pack(anchor=tk.W, padx=20)
-        location_entry = ttk.Entry(claim_win)
-        location_entry.pack(fill=tk.X, padx=20, pady=5)
+        ctk.CTkLabel(claim_win, text="Incident Location:").pack(anchor="w", padx=20)
+        location_entry = ctk.CTkEntry(claim_win)
+        location_entry.pack(fill="x", padx=20, pady=5)
 
-        ttk.Label(claim_win, text="Description of Incident:").pack(anchor=tk.W, padx=20)
-        # Using Text widget for multi-line description
-        desc_entry = tk.Text(claim_win, height=5, width=50)
-        desc_entry.pack(padx=20, pady=5)
+        ctk.CTkLabel(claim_win, text="Description of Incident:").pack(anchor="w", padx=20)
+        desc_entry = ctk.CTkTextbox(claim_win, height=80)
+        desc_entry.pack(fill="x", padx=20, pady=5)
 
         def submit_claim():
             if not policy_combo.get() or not amount_entry.get():
-                tk.messagebox.showerror("Error", "Policy and Amount are required.")
+                messagebox.showerror("Error", "Policy and Amount are required.")
                 return
 
             pol_id = policy_map[policy_combo.get()]
-            description = desc_entry.get("1.0", tk.END).strip() # Get text from Text widget
+            description = desc_entry.get("0.0", "end").strip() 
             
             success, msg = backend.file_claim(
                 pol_id, date_entry.get(), amount_entry.get(),
@@ -404,106 +383,88 @@ class Dashboard:
             )
 
             if success:
-                tk.messagebox.showinfo("Success", msg)
+                messagebox.showinfo("Success", msg)
                 claim_win.destroy()
                 self.refresh_claims_list()
             else:
-                tk.messagebox.showerror("Error", msg)
+                messagebox.showerror("Error", msg)
 
-        ttk.Button(claim_win, text="Submit Claim Request", command=submit_claim).pack(pady=20)
-
+        ctk.CTkButton(claim_win, text="Submit Claim Request", command=submit_claim).pack(pady=30)
 
     def show_customers(self):
         self.clear_content()
         
-        # 1. Header Area
-        header_frame = ttk.Frame(self.content_area)
-        header_frame.pack(fill=tk.X, pady=(0, 20))
+        header_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 20))
+        ctk.CTkLabel(header_frame, text="Customer Directory", font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
         
-        ttk.Label(header_frame, text="Customer Directory", font=("Arial", 18, "bold")).pack(side=tk.LEFT)
+        ctk.CTkButton(header_frame, text="+ Add New Customer", command=self.open_add_customer_window).pack(side="right")
+        ctk.CTkButton(header_frame, text="Edit Selected", command=self.open_edit_customer_window, fg_color="transparent", border_width=1).pack(side="right", padx=10)
+
+        search_frame = ctk.CTkFrame(self.content_area, fg_color="transparent")
+        search_frame.pack(fill="x", pady=(0, 10))
         
-        # Add Customer Button
-        ttk.Button(header_frame, text="+ Add New Customer", command=self.open_add_customer_window).pack(side=tk.RIGHT)
+        ctk.CTkLabel(search_frame, text="Search by Last Name:").pack(side="left", padx=(0, 10))
+        self.search_entry = ctk.CTkEntry(search_frame, width=200)
+        self.search_entry.pack(side="left", padx=(0, 10))
+        ctk.CTkButton(search_frame, text="Search", width=100, command=self.perform_search).pack(side="left")
+        ctk.CTkButton(search_frame, text="Reset", width=100, fg_color="gray", command=self.refresh_customer_list).pack(side="left", padx=10)
 
-        # Edit Customer Button
-        ttk.Button(header_frame, text="Edit Selected", command=self.open_edit_customer_window).pack(side=tk.RIGHT, padx=10)
+        tree_frame = ctk.CTkFrame(self.content_area)
+        tree_frame.pack(fill="both", expand=True)
 
-        # 2. Search Bar
-        search_frame = ttk.Frame(self.content_area)
-        search_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Label(search_frame, text="Search by Last Name:").pack(side=tk.LEFT, padx=(0, 10))
-        self.search_entry = ttk.Entry(search_frame)
-        self.search_entry.pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(search_frame, text="Search", command=self.perform_search).pack(side=tk.LEFT)
-        ttk.Button(search_frame, text="Reset", command=self.refresh_customer_list).pack(side=tk.LEFT, padx=10)
-
-        # 3. Customer List (Treeview)
         columns = ("ID", "First Name", "Last Name", "Email", "Phone")
-        self.tree = ttk.Treeview(self.content_area, columns=columns, show="headings")
+        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
         
-        # Define Headings
         for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=150) # Adjust width as needed
+            self.tree.column(col, width=150) 
             
-        self.tree.column("ID", width=50) # Make ID column smaller
-        
-        self.tree.pack(fill=tk.BOTH, expand=True)
+        self.tree.column("ID", width=50) 
+        self.tree.pack(fill="both", expand=True, padx=2, pady=2)
 
-        # Load initial data
         self.refresh_customer_list()
 
     def refresh_customer_list(self):
-        """Clears the table and reloads all data from backend."""
-        # Clear current items
         for item in self.tree.get_children():
             self.tree.delete(item)
-            
-        # Fetch from database
-        customers = backend.get_all_customers()
-        for cust in customers:
+        for cust in backend.get_all_customers():
             self.tree.insert("", tk.END, values=cust)
 
     def perform_search(self):
         query = self.search_entry.get()
         if not query:
             return
-            
-        # Clear and fetch search results
         for item in self.tree.get_children():
             self.tree.delete(item)
-            
-        results = backend.search_customers(query)
-        for res in results:
+        for res in backend.search_customers(query):
             self.tree.insert("", tk.END, values=res)
 
     def open_add_customer_window(self):
-        """Opens a pop-up window to add a customer."""
-        add_window = tk.Toplevel(self.root)
+        add_window = ctk.CTkToplevel(self.root)
         add_window.title("Add New Customer")
-        add_window.geometry("400x400")
+        add_window.geometry("450x550")
+        add_window.grab_set()
         
-        # Form Fields
-        ttk.Label(add_window, text="First Name:").pack(anchor=tk.W, padx=20, pady=(20, 5))
-        fname_entry = ttk.Entry(add_window)
-        fname_entry.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(add_window, text="First Name:").pack(anchor="w", padx=30, pady=(20, 5))
+        fname_entry = ctk.CTkEntry(add_window)
+        fname_entry.pack(fill="x", padx=30)
 
-        ttk.Label(add_window, text="Last Name:").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        lname_entry = ttk.Entry(add_window)
-        lname_entry.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(add_window, text="Last Name:").pack(anchor="w", padx=30, pady=(15, 5))
+        lname_entry = ctk.CTkEntry(add_window)
+        lname_entry.pack(fill="x", padx=30)
 
-        ttk.Label(add_window, text="Email:").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        email_entry = ttk.Entry(add_window)
-        email_entry.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(add_window, text="Email:").pack(anchor="w", padx=30, pady=(15, 5))
+        email_entry = ctk.CTkEntry(add_window)
+        email_entry.pack(fill="x", padx=30)
 
-        ttk.Label(add_window, text="Phone:").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        phone_entry = ttk.Entry(add_window)
-        phone_entry.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(add_window, text="Phone:").pack(anchor="w", padx=30, pady=(15, 5))
+        phone_entry = ctk.CTkEntry(add_window)
+        phone_entry.pack(fill="x", padx=30)
         
-        ttk.Label(add_window, text="Address:").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        address_entry = ttk.Entry(add_window)
-        address_entry.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(add_window, text="Address:").pack(anchor="w", padx=30, pady=(15, 5))
+        address_entry = ctk.CTkEntry(add_window)
+        address_entry.pack(fill="x", padx=30)
 
         def save_action():
             success, message = backend.add_customer(
@@ -511,63 +472,53 @@ class Dashboard:
                 email_entry.get(), phone_entry.get(), address_entry.get()
             )
             if success:
-                tk.messagebox.showinfo("Success", message)
+                messagebox.showinfo("Success", message)
                 add_window.destroy()
-                self.refresh_customer_list() # Update the list behind the window
+                self.refresh_customer_list() 
             else:
-                tk.messagebox.showerror("Error", message)
+                messagebox.showerror("Error", message)
 
-        ttk.Button(add_window, text="Save Customer", command=save_action).pack(pady=20)
+        ctk.CTkButton(add_window, text="Save Customer", command=save_action).pack(pady=30)
     
     def open_edit_customer_window(self):
-        """Opens a window pre-filled with the selected customer's data to edit."""
-        # 1. Get the selected row
         selected = self.tree.selection()
         if not selected:
-            tk.messagebox.showwarning("Selection Required", "Please click on a customer in the list first.")
+            messagebox.showwarning("Selection Required", "Please click on a customer in the list first.")
             return
 
-        # 2. Extract current values
         item = self.tree.item(selected[0])
         values = item['values']
         
-        customer_id = values[0]
-        curr_fname = values[1]
-        curr_lname = values[2]
-        curr_email = values[3]
-        curr_phone = values[4]
-        # the address isn't displayed in the Treeview to save space, but can be edited.
+        customer_id, curr_fname, curr_lname, curr_email, curr_phone = values[0], values[1], values[2], values[3], values[4]
 
-        # 3. Build the UI Window
-        edit_window = tk.Toplevel(self.root)
+        edit_window = ctk.CTkToplevel(self.root)
         edit_window.title(f"Edit Customer #{customer_id}")
-        edit_window.geometry("400x400")
+        edit_window.geometry("450x550")
+        edit_window.grab_set()
         
-        # Form Fields (Pre-filled)
-        ttk.Label(edit_window, text="First Name:").pack(anchor=tk.W, padx=20, pady=(20, 5))
-        fname_entry = ttk.Entry(edit_window)
+        ctk.CTkLabel(edit_window, text="First Name:").pack(anchor="w", padx=30, pady=(20, 5))
+        fname_entry = ctk.CTkEntry(edit_window)
         fname_entry.insert(0, curr_fname)
-        fname_entry.pack(fill=tk.X, padx=20)
+        fname_entry.pack(fill="x", padx=30)
 
-        ttk.Label(edit_window, text="Last Name:").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        lname_entry = ttk.Entry(edit_window)
+        ctk.CTkLabel(edit_window, text="Last Name:").pack(anchor="w", padx=30, pady=(15, 5))
+        lname_entry = ctk.CTkEntry(edit_window)
         lname_entry.insert(0, curr_lname)
-        lname_entry.pack(fill=tk.X, padx=20)
+        lname_entry.pack(fill="x", padx=30)
 
-        ttk.Label(edit_window, text="Email:").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        email_entry = ttk.Entry(edit_window)
+        ctk.CTkLabel(edit_window, text="Email:").pack(anchor="w", padx=30, pady=(15, 5))
+        email_entry = ctk.CTkEntry(edit_window)
         email_entry.insert(0, curr_email)
-        email_entry.pack(fill=tk.X, padx=20)
+        email_entry.pack(fill="x", padx=30)
 
-        ttk.Label(edit_window, text="Phone:").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        phone_entry = ttk.Entry(edit_window)
+        ctk.CTkLabel(edit_window, text="Phone:").pack(anchor="w", padx=30, pady=(15, 5))
+        phone_entry = ctk.CTkEntry(edit_window)
         phone_entry.insert(0, curr_phone if curr_phone != 'None' else '')
-        phone_entry.pack(fill=tk.X, padx=20)
+        phone_entry.pack(fill="x", padx=30)
         
-        ttk.Label(edit_window, text="Address:").pack(anchor=tk.W, padx=20, pady=(10, 5))
-        address_entry = ttk.Entry(edit_window)
-        # Leaving address blank to fill out, or you could fetch it from DB if needed
-        address_entry.pack(fill=tk.X, padx=20)
+        ctk.CTkLabel(edit_window, text="Address:").pack(anchor="w", padx=30, pady=(15, 5))
+        address_entry = ctk.CTkEntry(edit_window)
+        address_entry.pack(fill="x", padx=30)
 
         def save_changes():
             success, message = backend.update_customer(
@@ -575,15 +526,14 @@ class Dashboard:
                 email_entry.get(), phone_entry.get(), address_entry.get()
             )
             if success:
-                tk.messagebox.showinfo("Success", message)
+                messagebox.showinfo("Success", message)
                 edit_window.destroy()
-                self.refresh_customer_list() # Instantly updates the table
+                self.refresh_customer_list()
             else:
-                tk.messagebox.showerror("Error", message)
+                messagebox.showerror("Error", message)
 
-        ttk.Button(edit_window, text="Save Changes", command=save_changes).pack(pady=20)
+        ctk.CTkButton(edit_window, text="Save Changes", command=save_changes).pack(pady=30)
 
     def logout(self):
         self.root.destroy()
-        # In a real app, this would re-open the LoginWindow
         print("Logged out.")
