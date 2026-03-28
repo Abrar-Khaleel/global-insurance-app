@@ -10,7 +10,6 @@ class Dashboard:
         self.root = root
         self.role = role
         self.root.title(f"Global Insurance Inc. - {role} Dashboard v2.0")
-        self.root.geometry("1100x700")
 
         # --- GRID LAYOUT SETUP ---
         self.root.grid_rowconfigure(0, weight=1)

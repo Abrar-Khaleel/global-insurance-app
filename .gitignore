@@ -17,3 +17,5 @@ env/
 # IDE specific settings
 .vscode/
 .idea/
+
+local_config.json
